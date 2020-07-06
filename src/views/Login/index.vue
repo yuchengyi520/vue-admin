@@ -14,14 +14,19 @@
 
               <el-form-item  prop="password" class="item-form">
                   <label>密码</label>
-                  <el-input type="password" v-model="ruleForm.password" autocomplete="off"></el-input>
+                  <el-input type="password" v-model="ruleForm.password" autocomplete="off" minlength="6" maxlength="20"></el-input>
+              </el-form-item>
+
+              <el-form-item  prop="passwords" class="item-form" v-if="model === 'register'">
+                  <label>确认密码</label>
+                  <el-input type="password" v-model="ruleForm.passwords" autocomplete="off" minlength="6" maxlength="20"></el-input>
               </el-form-item>
 
               <el-form-item  prop="code" class="item-form">
                   <label>验证码</label>
                   <el-row :gutter="10">
                       <el-col :span="15">
-                          <el-input v-model.number="ruleForm.code"></el-input>
+                          <el-input v-model.number="ruleForm.code" minlength="6" maxlength="6"></el-input>
                       </el-col>
                       <el-col :span="9">
                           <el-button type="success" class="block">获取验证码</el-button>
@@ -39,65 +44,85 @@
 </template>
 
 <script>
+    import { stripscript, validateEmail, validatePass, validateVcode } from '@/utils/validate';
     export default {
         name: "login",
         data() {
-            let checkAge = (rule, value, callback) => {
-                if (!value) {
-                    return callback(new Error('年龄不能为空'));
-                }
-                setTimeout(() => {
-                    if (!Number.isInteger(value)) {
-                        callback(new Error('请输入数字值'));
-                    } else {
-                        if (value < 18) {
-                            callback(new Error('必须年满18岁'));
-                        } else {
-                            callback();
-                        }
-                    }
-                }, 1000);
-            };
-            let validatePass = (rule, value, callback) => {
-                console.log("password")
-                let reg = /^([a-zA-Z]|[0-9])(\w|\-)+@[a-zA-Z]{2,4}$/;
+            //验证用户名
+            let validateUsername = (rule, value, callback) => {
+                //let reg = /^([a-zA-Z]|[0-9])(\w|\-)+@[a-zA-Z]{2,4}$/;
                 if (value === '') {
                     callback(new Error('请输入用户名'));
-                }else if(!reg.test(value)){
+                }else if(validateEmail(value)){
                     callback(new Error('用户名格式有误'));
                 }
                 else {
                     callback();
                 }
             };
-            let validatePass2 = (rule, value, callback) => {
+            //验证密码
+            let validatePassword = (rule, value, callback) => {
+                //let reg = /^(?!\D+$)(?![a^zA-Z]+$)\S{6,20}$/;
+                this.ruleForm.password = stripscript(value);
+                value = this.ruleForm.password;
+                if (value === '') {
+                    callback(new Error('请输入密码'));
+                } else if (validatePass(value)) {
+                    callback(new Error('密码为6至20为数字+字母'));
+                } else {
+                    callback();
+                }
+            };
+            //验证重复密码
+            let validatePasswords = (rule, value, callback) => {
+                //let reg = /^(?!\D+$)(?![a^zA-Z]+$)\S{6,20}$/;
+                this.ruleForm.passwords = stripscript(value);
+                value = this.ruleForm.passwords;
                 if (value === '') {
                     callback(new Error('请再次输入密码'));
-                } else if (value !== this.ruleForm.pass) {
-                    callback(new Error('两次输入密码不一致!'));
+                } else if (value != this.ruleForm.password) {
+                    callback(new Error('重复密码不正确'));
                 } else {
+                    callback();
+                }
+            };
+            //验证验证码
+            let checkCode = (rule, value, callback) => {
+                console.log(stripscript(value));
+                let reg = /^[a-z0-9]{6}$/;
+                if (value === '') {
+                    return callback(new Error('请输入验证码'));
+                }else if (validateVcode(value)){
+                    return callback(new Error('验证码格式有误'));
+                }else {
                     callback();
                 }
             };
             return {
                 menuTab:[
-                    {txt:"登陆", current: true},
-                    {txt:"注册", current: false}
+                    {txt:"登陆", current: true, type: 'login'},
+                    {txt:"注册", current: false, type: 'register'}
                 ],
+                //确认密码初始化值
+                model:'login',
                 ruleForm: {
                     username: '',
                     password: '',
+                    passwords: '',
                     code: ''
                 },
                 rules: {
                     username: [
-                        { validator: validatePass, trigger: 'blur' }
+                        { validator: validateUsername, trigger: 'blur' }
                     ],
                     password: [
-                        { validator: validatePass2, trigger: 'blur' }
+                        { validator: validatePassword, trigger: 'blur' }
+                    ],
+                    passwords: [
+                        { validator: validatePasswords, trigger: 'blur' }
                     ],
                     code: [
-                        { validator: checkAge, trigger: 'blur' }
+                        { validator: checkCode, trigger: 'blur' }
                     ]
                 }
             }
@@ -110,11 +135,14 @@
         methods: {
             //vue数据驱动视图渲染
             toggleMenu(data){
+                console.log(data.type);
                 this.menuTab.forEach((elem, index)=> {
                    elem.current = false;
                 });
                 //高光
                 data.current = true;
+                // 修改模块值
+                this.model = data.type;
             },
             submitForm(formName) {
                 this.$refs[formName].validate((valid) => {
